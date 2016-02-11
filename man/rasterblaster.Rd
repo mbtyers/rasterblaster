@@ -5,8 +5,8 @@
 \title{Plots a kriging result in color!}
 \usage{
 rasterblaster(krigePlot, type = "predict", z = NULL, ramp = "rainbow",
-  invert = F, alpha = 0.8, dark = 0.85, contour = T, xlab = "X coord",
-  ylab = "Y coord", ...)
+  invert = T, alpha = 0.8, dark = 0.85, contour = T, xlab = "X coord",
+  ylab = "Y coord", nlevels = 10, ...)
 }
 \arguments{
 \item{krigePlot}{The kriging object to use, returned from \link[geoR]{krige.conv}}
@@ -25,10 +25,15 @@ rasterblaster(krigePlot, type = "predict", z = NULL, ramp = "rainbow",
 
 \item{contour}{Whether to add contour lines.  Defaults to \code{TRUE}.}
 
+\item{nlevels}{The number of contour levels to use.  Defaults to 10.}
+
 \item{...}{Additional plotting parameters}
 }
 \description{
 Pass in a kriging result, and watch the world explode into technicolor, just like for Dorothy.
+}
+\note{
+Can also produce a plot from an object returned from \link[geoRglm]{pois.krige.bayes} or \link[geoRglm]{binom.krige.bayes}, but adding contour lines is awfully slow.
 }
 \examples{
 data(krigePlot,locations)
@@ -38,6 +43,8 @@ rasterblaster(krigePlot,invert=T)
 rasterblaster(krigePlot,alpha=.4)
 rasterblaster(krigePlot,alpha=.4,dark=.7)
 rasterblaster(krigePlot,ramp="grey")
+
+rasterblaster(krigePlot,type="se",ramp="red")
 }
 \author{
 Matt Tyers

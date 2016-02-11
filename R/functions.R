@@ -8,8 +8,10 @@
 #'@param alpha Color transparency to use for plotting.  This ranges from 0 (completely transparent) to 1 (true color).  Defaults to 0.8.
 #'@param dark Color saturation to use for plotting.  This ranges from 0 (black) to 1 (true color).  Defaults to 0.85.
 #'@param contour Whether to add contour lines.  Defaults to \code{TRUE}.
+#'@param nlevels The number of contour levels to use.  Defaults to 10.
 #'@param ... Additional plotting parameters
 #'@author Matt Tyers
+#'@note Can also produce a plot from an object returned from \link[geoRglm]{pois.krige.bayes} or \link[geoRglm]{binom.krige.bayes}, but adding contour lines is awfully slow.
 #'@examples
 #'data(krigePlot,locations)
 #'
@@ -18,15 +20,25 @@
 #'rasterblaster(krigePlot,alpha=.4)
 #'rasterblaster(krigePlot,alpha=.4,dark=.7)
 #'rasterblaster(krigePlot,ramp="grey")
+#'
+#'rasterblaster(krigePlot,type="se",ramp="red")
 #'@import geoR
 #'@export
-rasterblaster <- function(krigePlot,type="predict",z=NULL,ramp="rainbow",invert=F,alpha=.8,dark=.85,contour=T,xlab="X coord",ylab="Y coord",...) {
+rasterblaster <- function(krigePlot,type="predict",z=NULL,ramp="rainbow",invert=T,alpha=.8,dark=.85,contour=T,xlab="X coord",ylab="Y coord",nlevels=10,...) {
   locations <- eval(parse(text=krigePlot$call$locations))
   if(is.null(z)) {
-    if(type=="predict") z <- krigePlot$predict
-    if(type=="se") z <- sqrt(krigePlot$krige.var)
-    if(type=="lower95") z <- krigePlot$predict-2*sqrt(krigePlot$krige.var)
-    if(type=="upper95") z <- krigePlot$predict+2*sqrt(krigePlot$krige.var)
+    if(class(krigePlot)=="kriging") {
+      if(type=="predict") z <- krigePlot$predict
+      if(type=="se") z <- sqrt(krigePlot$krige.var)
+      if(type=="lower95") z <- krigePlot$predict-2*sqrt(krigePlot$krige.var)
+      if(type=="upper95") z <- krigePlot$predict+2*sqrt(krigePlot$krige.var)
+    }
+    if(class(krigePlot)=="glm.krige.bayes") {
+      if(type=="predict") z <- krigePlot$predictive$median
+      if(type=="se") z <- krigePlot$predictive$uncertainty
+      if(type=="lower95") z <- krigePlot$predictive$quantiles$q0.025
+      if(type=="upper95") z <- krigePlot$predictive$quantiles$q0.975
+    }
   }
   n <- dim(locations)[1]
   delx <- sort(unique(locations[,1]))[2] - sort(unique(locations[,1]))[1]
@@ -36,7 +48,7 @@ rasterblaster <- function(krigePlot,type="predict",z=NULL,ramp="rainbow",invert=
   ybottom <- locations[,2] - .5*dely
   ytop <- locations[,2] + .5*dely
   zcol <- (z-min(z))/(max(z)-min(z))
-  if(!invert) zcol <- 1-zcol
+  if(invert) zcol <- 1-zcol
   if(ramp=="grey") cols <- grey(zcol)
   if(ramp=="red") cols <- rgb(1,zcol,zcol)
   if(ramp=="rainbow") cols <- rainbow(n,start=0,end=.7)[rank(zcol)]
@@ -45,7 +57,25 @@ rasterblaster <- function(krigePlot,type="predict",z=NULL,ramp="rainbow",invert=
   cols <- adjustcolor(cols,alpha.f=alpha,red.f=dark,green.f=dark,blue.f=dark)
   plot(locations,asp=1,xlab=xlab,ylab=ylab,col="white",...=...)
   rect(xleft, ybottom, xright, ytop, col=cols, border=NA)
-  if(contour) contour(krigePlot,val=z,add=T)
+  if(contour) {
+    if(class(krigePlot)=="kriging") contour(krigePlot,val=z,add=T,nlevels=nlevels)
+    if(class(krigePlot)=="glm.krige.bayes") {
+      grid <- matrix(NA,nrow=length(unique(locations$Var1)),ncol=length(unique(locations$Var2)))
+      xrank <- yrank <- NA
+      xgrid <- sort(unique(locations$Var1))
+      ygrid <- sort(unique(locations$Var2))
+      for(i in 1:(dim(locations)[1])) {
+        xrank[i] <- which(xgrid==locations$Var1[i])
+        yrank[i] <- which(ygrid==locations$Var2[i])
+      }
+      for(i in 1:length(xgrid)) {
+        for(j in 1:length(ygrid)) {
+          grid[i,j] <- z[xrank==i&yrank==j]
+        }
+      }
+      contour(x=xgrid,y=ygrid,z=grid,add=T,nlevels=nlevels)
+    }
+  }
 }
 
 #'Makes a prediction grid from a geodata object
